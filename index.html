@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rectangle Dragger</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            display: flex;
+            gap: 20px;
+            height: 100vh;
+        }
+        
+        .controls {
+            width: 280px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+        
+        .control-group {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        .control-group h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .slider-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .slider-item label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        .colour-picker {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .colour-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .colour-option:hover {
+            background: #eee;
+        }
+        
+        .colour-option.selected {
+            background: #e0e0e0;
+            outline: 2px solid #999;
+        }
+        
+        .colour-swatch {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
+        .colour-label {
+            font-size: 14px;
+            color: #333;
+            flex: 1;
+        }
+        
+        .layer-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: white;
+            cursor: crosshair;
+        }
+        
+        .selected-info {
+            font-size: 14px;
+            color: #666;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 4px;
+        }
+        
+        .number-display {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <div class="control-group">
+            <h3>Rectangle Count</h3>
+            <div class="slider-container">
+                <div class="slider-item">
+                    <label>Number of rectangles: <span id="countValue" class="number-display">1</span></label>
+                    <input type="range" id="rectangleCount" min="1" max="10" value="1" step="1">
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Size (pixels)</h3>
+            <div class="slider-container">
+                <div class="slider-item">
+                    <label>Width: <span id="widthValue">100</span>px</label>
+                    <input type="range" id="widthSlider" min="50" max="300" value="100">
+                </div>
+                <div class="slider-item">
+                    <label>Height: <span id="heightValue">100</span>px</label>
+                    <input type="range" id="heightSlider" min="50" max="300" value="100">
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Line Colour</h3>
+            <div class="colour-picker" id="colourPicker">
+                <div class="colour-option selected" data-colour="black">
+                    <div class="colour-swatch" style="background: black; border: 1px solid #999;"></div>
+                    <span class="colour-label">Black</span>
+                </div>
+                <div class="colour-option" data-colour="red">
+                    <div class="colour-swatch" style="background: red;"></div>
+                    <span class="colour-label">Red</span>
+                </div>
+                <div class="colour-option" data-colour="blue">
+                    <div class="colour-swatch" style="background: blue;"></div>
+                    <span class="colour-label">Blue</span>
+                </div>
+                <div class="colour-option" data-colour="green">
+                    <div class="colour-swatch" style="background: green;"></div>
+                    <span class="colour-label">Green</span>
+                </div>
+                <div class="colour-option" data-colour="purple">
+                    <div class="colour-swatch" style="background: purple;"></div>
+                    <span class="colour-label">Purple</span>
+                </div>
+                <div class="colour-option" data-colour="orange">
+                    <div class="colour-swatch" style="background: orange;"></div>
+                    <span class="colour-label">Orange</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Layer Controls</h3>
+            <div class="selected-info" id="selectedInfo">
+                Selected: None
+            </div>
+            <div class="layer-controls">
+                <button id="bringToFront" disabled>Bring to Front</button>
+                <button id="sendToBack" disabled>Send to Back</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Actions</h3>
+            <button id="createRectangles">Create/Update Rectangles</button>
+        </div>
+    </div>
+    
+    <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        class RectangleApp {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Rectangles array
+                this.rectangles = [];
+                
+                // Selected rectangle index
+                this.selectedIndex = -1;
+                
+                // Drag state
+                this.dragging = false;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                this.dragRectOriginalX = 0;
+                this.dragRectOriginalY = 0;
+                
+                // Available colours
+                this.colours = ['black', 'red', 'blue', 'green', 'purple', 'orange'];
+                this.selectedColour = 'black';
+                
+                // Bind methods
+                this.handleMouseDown = this.handleMouseDown.bind(this);
+                this.handleMouseMove = this.handleMouseMove.bind(this);
+                this.handleMouseUp = this.handleMouseUp.bind(this);
+                this.handleMouseLeave = this.handleMouseLeave.bind(this);
+                
+                // Initialize
+                this.initEventListeners();
+                this.initControls();
+                this.resizeCanvas();
+                this.createRectangles();
+                
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    this.resizeCanvas();
+                    this.draw();
+                });
+            }
+            
+            resizeCanvas() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+                this.draw();
+            }
+            
+            initEventListeners() {
+                this.canvas.addEventListener('mousedown', this.handleMouseDown);
+                window.addEventListener('mousemove', this.handleMouseMove);
+                window.addEventListener('mouseup', this.handleMouseUp);
+                this.canvas.addEventListener('mouseleave', this.handleMouseLeave);
+            }
+            
+            initControls() {
+                // Rectangle count slider
+                const countSlider = document.getElementById('rectangleCount');
+                const countValue = document.getElementById('countValue');
+                countSlider.addEventListener('input', (e) => {
+                    countValue.textContent = e.target.value;
+                });
+                
+                // Width slider
+                const widthSlider = document.getElementById('widthSlider');
+                const widthValue = document.getElementById('widthValue');
+                widthSlider.addEventListener('input', (e) => {
+                    widthValue.textContent = e.target.value;
+                });
+                
+                // Height slider
+                const heightSlider = document.getElementById('heightSlider');
+                const heightValue = document.getElementById('heightValue');
+                heightSlider.addEventListener('input', (e) => {
+                    heightValue.textContent = e.target.value;
+                });
+                
+                // Colour picker
+                document.querySelectorAll('.colour-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        document.querySelectorAll('.colour-option').forEach(opt => {
+                            opt.classList.remove('selected');
+                        });
+                        option.classList.add('selected');
+                        this.selectedColour = option.dataset.colour;
+                        
+                        // Update selected rectangle's colour if one is selected
+                        if (this.selectedIndex !== -1 && this.rectangles[this.selectedIndex]) {
+                            this.rectangles[this.selectedIndex].colour = this.selectedColour;
+                            this.draw();
+                        }
+                    });
+                });
+                
+                // Create/Update button
+                document.getElementById('createRectangles').addEventListener('click', () => {
+                    this.createRectangles();
+                });
+                
+                // Layer controls
+                document.getElementById('bringToFront').addEventListener('click', () => {
+                    this.bringToFront();
+                });
+                
+                document.getElementById('sendToBack').addEventListener('click', () => {
+                    this.sendToBack();
+                });
+            }
+            
+            createRectangles() {
+                const count = parseInt(document.getElementById('rectangleCount').value);
+                const width = parseInt(document.getElementById('widthSlider').value);
+                const height = parseInt(document.getElementById('heightSlider').value);
+                
+                this.rectangles = [];
+                
+                for (let i = 0; i < count; i++) {
+                    // Position rectangles with some offset to avoid complete overlap
+                    const x = 50 + (i * 30) % (this.canvas.width - width - 50);
+                    const y = 50 + (i * 30) % (this.canvas.height - height - 50);
+                    
+                    this.rectangles.push({
+                        x: Math.min(x, this.canvas.width - width - 10),
+                        y: Math.min(y, this.canvas.height - height - 10),
+                        width: width,
+                        height: height,
+                        colour: this.colours[i % this.colours.length]
+                    });
+                }
+                
+                this.selectedIndex = -1;
+                this.updateSelectedInfo();
+                this.updateLayerButtons();
+                this.draw();
+            }
+            
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw rectangles in order (last is topmost)
+                this.rectangles.forEach((rect, index) => {
+                    this.ctx.strokeStyle = rect.colour;
+                    this.ctx.lineWidth = index === this.selectedIndex ? 3 : 2;
+                    
+                    // Add dashed border for selected rectangle
+                    if (index === this.selectedIndex) {
+                        this.ctx.setLineDash([5, 3]);
+                    } else {
+                        this.ctx.setLineDash([]);
+                    }
+                    
+                    this.ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                    
+                    // Reset line dash
+                    this.ctx.setLineDash([]);
+                    
+                    // Add small resize handle indicator for selected rectangle
+                    if (index === this.selectedIndex) {
+                        this.ctx.fillStyle = rect.colour;
+                        this.ctx.fillRect(rect.x + rect.width - 5, rect.y + rect.height - 5, 10, 10);
+                    }
+                });
+            }
+            
+            findRectangleAt(x, y) {
+                // Search from top (last index) to bottom
+                for (let i = this.rectangles.length - 1; i >= 0; i--) {
+                    const rect = this.rectangles[i];
+                    if (x >= rect.x && x <= rect.x + rect.width &&
+                        y >= rect.y && y <= rect.y + rect.height) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+            
+            handleMouseDown(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const clickedIndex = this.findRectangleAt(x, y);
+                
+                if (clickedIndex !== -1) {
+                    this.selectedIndex = clickedIndex;
+                    this.dragging = true;
+                    this.dragStartX = x;
+                    this.dragStartY = y;
+                    this.dragRectOriginalX = this.rectangles[clickedIndex].x;
+                    this.dragRectOriginalY = this.rectangles[clickedIndex].y;
+                    
+                    // Update colour picker to match selected rectangle
+                    const selectedRect = this.rectangles[clickedIndex];
+                    this.selectedColour = selectedRect.colour;
+                    document.querySelectorAll('.colour-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                        if (opt.dataset.colour === selectedRect.colour) {
+                            opt.classList.add('selected');
+                        }
+                    });
+                    
+                    this.updateSelectedInfo();
+                    this.updateLayerButtons();
+                    this.draw();
+                } else {
+                    this.selectedIndex = -1;
+                    this.updateSelectedInfo();
+                    this.updateLayerButtons();
+                    this.draw();
+                }
+            }
+            
+            handleMouseMove(e) {
+                if (!this.dragging || this.selectedIndex === -1) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const dx = x - this.dragStartX;
+                const dy = y - this.dragStartY;
+                
+                const selectedRect = this.rectangles[this.selectedIndex];
+                
+                // Update position with bounds checking
+                selectedRect.x = Math.max(0, Math.min(this.canvas.width - selectedRect.width, 
+                                                     this.dragRectOriginalX + dx));
+                selectedRect.y = Math.max(0, Math.min(this.canvas.height - selectedRect.height, 
+                                                     this.dragRectOriginalY + dy));
+                
+                this.draw();
+            }
+            
+            handleMouseUp() {
+                this.dragging = false;
+            }
+            
+            handleMouseLeave() {
+                this.dragging = false;
+            }
+            
+            bringToFront() {
+                if (this.selectedIndex !== -1 && this.rectangles.length > 1) {
+                    const rect = this.rectangles.splice(this.selectedIndex, 1)[0];
+                    this.rectangles.push(rect);
+                    this.selectedIndex = this.rectangles.length - 1;
+                    this.draw();
+                    this.updateLayerButtons();
+                }
+            }
+            
+            sendToBack() {
+                if (this.selectedIndex !== -1 && this.rectangles.length > 1) {
+                    const rect = this.rectangles.splice(this.selectedIndex, 1)[0];
+                    this.rectangles.unshift(rect);
+                    this.selectedIndex = 0;
+                    this.draw();
+                    this.updateLayerButtons();
+                }
+            }
+            
+            updateSelectedInfo() {
+                const info = document.getElementById('selectedInfo');
+                if (this.selectedIndex !== -1 && this.rectangles[this.selectedIndex]) {
+                    const rect = this.rectangles[this.selectedIndex];
+                    info.textContent = `Selected: Rectangle ${this.selectedIndex + 1} (${rect.colour})`;
+                } else {
+                    info.textContent = 'Selected: None';
+                }
+            }
+            
+            updateLayerButtons() {
+                const bringBtn = document.getElementById('bringToFront');
+                const sendBtn = document.getElementById('sendToBack');
+                const hasSelection = this.selectedIndex !== -1 && this.rectangles.length > 0;
+                bringBtn.disabled = !hasSelection;
+                sendBtn.disabled = !hasSelection;
+            }
+        }
+        
+        // Initialize the app when the page loads
+        window.addEventListener('load', () => {
+            new RectangleApp();
+        });
+    </script>
+</body>
+</html>
