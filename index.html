@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rectangle Studio - Mobile</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+        }
+
+        /* Canvas Area - Fixed orientation, never rotates */
+        .canvas-container {
+            flex: 1;
+            background: #2a2a2a;
+            position: relative;
+            overflow: hidden;
+            touch-action: none;
+            /* Canvas container stays in portrait/landscape as defined by device, but we don't transform it */
+        }
+
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            touch-action: none;
+        }
+
+        /* Floating Action Button - rotates with device */
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 30px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            font-size: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            cursor: pointer;
+            transition: transform 0.2s;
+            touch-action: manipulation;
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        /* Menu Panel - rotates with device and adapts layout */
+        .menu-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1e1e1e;
+            border-radius: 20px 20px 0 0;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            z-index: 2000;
+            max-height: 80vh;
+            overflow-y: auto;
+            touch-action: pan-y;
+            color: white;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+        }
+
+        /* Landscape orientation menu adjustments */
+        @media (orientation: landscape) {
+            .menu-panel .menu-content {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+                padding: 15px;
+            }
+            
+            .menu-panel .control-section {
+                margin-bottom: 0;
+            }
+            
+            .menu-panel .action-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .menu-panel .colour-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            /* Make save and delete buttons span full width in landscape */
+            .menu-panel .save-button,
+            .menu-panel .delete-button {
+                grid-column: span 2;
+            }
+        }
+
+        .menu-panel.visible {
+            transform: translateY(0);
+        }
+
+        .menu-header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            position: sticky;
+            top: 0;
+            background: #1e1e1e;
+            z-index: 10;
+        }
+
+        .menu-header h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .close-menu {
+            background: none;
+            border: none;
+            color: #2196f3;
+            font-size: 24px;
+            padding: 10px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .menu-content {
+            padding: 20px;
+        }
+
+        /* Selection Bar - rotates with device */
+        .selection-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 90px;
+            background: rgba(30,30,30,0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 999;
+            transform: translateY(150%);
+            transition: transform 0.3s;
+            color: white;
+            border: 1px solid #333;
+        }
+
+        .selection-bar.visible {
+            transform: translateY(0);
+        }
+
+        .selection-info {
+            flex: 1;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .selection-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .selection-action {
+            background: none;
+            border: none;
+            color: #2196f3;
+            font-size: 20px;
+            padding: 5px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        /* Control Sections */
+        .control-section {
+            margin-bottom: 25px;
+        }
+
+        .control-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 15px;
+            color: #888;
+        }
+
+        /* Colour Grid */
+        .colour-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .colour-option {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            border: 3px solid transparent;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: all 0.2s;
+        }
+
+        .colour-option.selected {
+            border-color: #2196f3;
+            transform: scale(1.05);
+        }
+
+        /* Size Controls */
+        .size-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .size-label {
+            width: 70px;
+            font-size: 16px;
+        }
+
+        .size-input {
+            width: 80px;
+            height: 40px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #2a2a2a;
+            color: white;
+            font-size: 16px;
+            text-align: center;
+            padding: 0 5px;
+            -moz-appearance: textfield;
+        }
+
+        .size-input::-webkit-outer-spin-button,
+        .size-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .size-input:focus {
+            outline: none;
+            border-color: #2196f3;
+        }
+
+        .size-slider {
+            flex: 1;
+            height: 40px;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+
+        .size-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 12px;
+            background: #2196f3;
+            margin-top: -10px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .size-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+        }
+
+        /* Flip button */
+        .flip-button {
+            background: #9c27b0;
+            border: none;
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        .flip-button:active {
+            background: #7b1fa2;
+        }
+
+        .flip-button:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Share Controls */
+        .share-controls {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .seed-display {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 14px;
+            color: #4caf50;
+            border: 1px solid #333;
+            user-select: all;
+        }
+
+        .seed-input {
+            width: 100%;
+            padding: 15px;
+            background: #1a1a1a;
+            border: 2px solid #333;
+            border-radius: 8px;
+            color: white;
+            font-family: monospace;
+            font-size: 14px;
+            margin-bottom: 10px;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .seed-input:focus {
+            outline: none;
+            border-color: #2196f3;
+        }
+
+        .share-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .share-button {
+            background: #333;
+            border: none;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .share-button.generate {
+            background: #2196f3;
+        }
+
+        .share-button.copy {
+            background: #4caf50;
+        }
+
+        .share-button.load {
+            background: #ff9800;
+        }
+
+        .share-button:active {
+            opacity: 0.8;
+        }
+
+        /* Action Buttons */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .action-button {
+            background: #333;
+            border: none;
+            color: white;
+            padding: 16px 5px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: background 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .action-button:active {
+            background: #444;
+        }
+
+        .action-button:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .action-icon {
+            font-size: 24px;
+        }
+
+        .action-label {
+            font-size: 12px;
+        }
+
+        /* Rectangle Count */
+        .count-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .count-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .count-button {
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            background: #333;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .count-display {
+            font-size: 24px;
+            font-weight: 500;
+            color: #2196f3;
+        }
+
+        /* Delete button */
+        .delete-button {
+            background: #d32f2f;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            margin-top: 10px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .delete-button:active {
+            background: #b71c1c;
+        }
+
+        /* Save button */
+        .save-button {
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            margin-top: 10px;
+            cursor: pointer;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .save-button:active {
+            background: #388e3c;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 30px;
+            text-align: center;
+            font-size: 14px;
+            z-index: 3000;
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .toast.visible {
+            display: block;
+            animation: fadeInOut 2s;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(20px); }
+            20% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Long press indicator */
+        .long-press-indicator {
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            border-radius: 30px;
+            background: rgba(33, 150, 243, 0.3);
+            pointer-events: none;
+            z-index: 10001;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fab" id="fab">+</button>
+
+    <!-- Selection Bar -->
+    <div class="selection-bar" id="selectionBar">
+        <div class="selection-info" id="selectionInfo">No rectangle selected</div>
+        <div class="selection-actions">
+            <button class="selection-action" id="editRect">✎</button>
+            <button class="selection-action" id="deselectRect">✕</button>
+        </div>
+    </div>
+
+    <!-- Long Press Indicator -->
+    <div class="long-press-indicator" id="longPressIndicator"></div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Menu Panel -->
+    <div class="menu-panel" id="menuPanel">
+        <div class="menu-header">
+            <h2>Rectangle Studio</h2>
+            <button class="close-menu" id="closeMenu">✕</button>
+        </div>
+        <div class="menu-content">
+            <!-- Share Section -->
+            <div class="control-section">
+                <div class="control-title">SHARE / LOAD</div>
+                <div class="share-controls">
+                    <div class="seed-display" id="seedDisplay">Click generate to create share code</div>
+                    <div class="share-buttons">
+                        <button class="share-button generate" id="generateSeed">
+                            <span>🎲</span> Generate
+                        </button>
+                        <button class="share-button copy" id="copySeed">
+                            <span>📋</span> Copy
+                        </button>
+                    </div>
+                    <input type="text" class="seed-input" id="seedInput" placeholder="Paste seed code here">
+                    <button class="share-button load" id="loadSeed">
+                        <span>📂</span> Load from Seed
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rectangle Count -->
+            <div class="control-section">
+                <div class="control-title">NUMBER OF RECTANGLES</div>
+                <div class="count-control">
+                    <div class="count-buttons">
+                        <button class="count-button" id="decreaseCount">−</button>
+                        <button class="count-button" id="increaseCount">+</button>
+                    </div>
+                    <span class="count-display" id="countDisplay">1</span>
+                </div>
+                <button class="action-button" id="applyCount" style="width:100%; flex-direction:row; justify-content:center;">
+                    <span>Apply Count</span>
+                </button>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="control-section">
+                <div class="control-title">QUICK ACTIONS</div>
+                <div class="action-grid">
+                    <button class="action-button" id="newRect">
+                        <span class="action-icon">⬜</span>
+                        <span class="action-label">New</span>
+                    </button>
+                    <button class="action-button" id="bringForwardBtn" disabled>
+                        <span class="action-icon">⬆️</span>
+                        <span class="action-label">Forward</span>
+                    </button>
+                    <button class="action-button" id="sendBackwardBtn" disabled>
+                        <span class="action-icon">⬇️</span>
+                        <span class="action-label">Backward</span>
+                    </button>
+                    <button class="action-button" id="saveImageBtn">
+                        <span class="action-icon">💾</span>
+                        <span class="action-label">Save</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Size Controls -->
+            <div class="control-section" id="sizeControls">
+                <div class="control-title">SIZE (selected rectangle)</div>
+                <div class="size-control">
+                    <span class="size-label">Width</span>
+                    <input type="number" class="size-input" id="widthInput" min="10" max="700" value="100">
+                    <input type="range" class="size-slider" id="widthSlider" min="10" max="700" value="100" step="1">
+                </div>
+                <div class="size-control">
+                    <span class="size-label">Height</span>
+                    <input type="number" class="size-input" id="heightInput" min="10" max="700" value="100">
+                    <input type="range" class="size-slider" id="heightSlider" min="10" max="700" value="100" step="1">
+                </div>
+                
+                <!-- Flip Button -->
+                <button class="flip-button" id="flipDimensions" disabled>
+                    <span>🔄</span> Flip Width/Height
+                </button>
+            </div>
+
+            <!-- Colour Selection -->
+            <div class="control-section">
+                <div class="control-title">LINE COLOUR</div>
+                <div class="colour-grid">
+                    <div class="colour-option selected" style="background: #000000;" data-colour="black"></div>
+                    <div class="colour-option" style="background: #f44336;" data-colour="red"></div>
+                    <div class="colour-option" style="background: #2196f3;" data-colour="blue"></div>
+                    <div class="colour-option" style="background: #4caf50;" data-colour="green"></div>
+                    <div class="colour-option" style="background: #9c27b0;" data-colour="purple"></div>
+                    <div class="colour-option" style="background: #ff9800;" data-colour="orange"></div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <button class="save-button" id="saveImage">
+                <span>💾</span> Save Canvas as JPEG
+            </button>
+
+            <!-- Delete Button -->
+            <button class="delete-button" id="deleteRect" disabled>Delete Selected Rectangle</button>
+        </div>
+    </div>
+
+    <script>
+        class MobileRectangleApp {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // State
+                this.rectangles = [];
+                this.selectedIndex = -1;
+                this.colours = ['black', 'red', 'blue', 'green', 'purple', 'orange'];
+                this.selectedColour = 'black';
+                
+                // Colour mapping for encoding/decoding
+                this.colourToIndex = {
+                    'black': 0,
+                    'red': 1,
+                    'blue': 2,
+                    'green': 3,
+                    'purple': 4,
+                    'orange': 5
+                };
+                
+                // Interaction states
+                this.dragging = false;
+                this.longPressTimer = null;
+                this.dragStart = { x: 0, y: 0 };
+                this.dragRectStart = { x: 0, y: 0 };
+                this.longPressThreshold = 500; // ms
+                
+                // Touch handling
+                this.touchIdentifier = null;
+                
+                // Bind methods
+                this.handleTouchStart = this.handleTouchStart.bind(this);
+                this.handleTouchMove = this.handleTouchMove.bind(this);
+                this.handleTouchEnd = this.handleTouchEnd.bind(this);
+                this.handleTouchCancel = this.handleTouchCancel.bind(this);
+                this.handleOrientationChange = this.handleOrientationChange.bind(this);
+                
+                // Initialize
+                this.initEventListeners();
+                this.initControls();
+                this.resizeCanvas();
+                this.createDefaultRectangles();
+                
+                // Listen for orientation changes
+                window.addEventListener('orientationchange', this.handleOrientationChange);
+                window.addEventListener('resize', this.handleOrientationChange);
+            }
+
+            handleOrientationChange() {
+                // Just ensure the canvas resizes properly without rotating content
+                this.resizeCanvas();
+                this.draw();
+                
+                // The menu will automatically adapt via CSS media queries
+                // No need to transform the canvas
+            }
+
+            resizeCanvas() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+                
+                // Ensure rectangles stay within bounds after orientation change
+                this.rectangles.forEach(rect => {
+                    rect.x = Math.max(0, Math.min(this.canvas.width - rect.width, rect.x));
+                    rect.y = Math.max(0, Math.min(this.canvas.height - rect.height, rect.y));
+                });
+            }
+
+            initEventListeners() {
+                // Touch events - only for dragging now (no resizing)
+                this.canvas.addEventListener('touchstart', this.handleTouchStart, { passive: false });
+                this.canvas.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+                this.canvas.addEventListener('touchend', this.handleTouchEnd);
+                this.canvas.addEventListener('touchcancel', this.handleTouchCancel);
+                
+                // Prevent context menu on long press
+                this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+
+            initControls() {
+                // Menu controls
+                document.getElementById('fab').addEventListener('click', () => this.toggleMenu());
+                document.getElementById('closeMenu').addEventListener('click', () => this.hideMenu());
+                
+                // Share controls
+                document.getElementById('generateSeed').addEventListener('click', () => this.generateSeed());
+                document.getElementById('copySeed').addEventListener('click', () => this.copySeed());
+                document.getElementById('loadSeed').addEventListener('click', () => this.loadSeed());
+                
+                // Count controls
+                document.getElementById('increaseCount').addEventListener('click', () => {
+                    const count = Math.min(10, this.rectangles.length + 1);
+                    this.updateRectangleCount(count);
+                });
+                
+                document.getElementById('decreaseCount').addEventListener('click', () => {
+                    const count = Math.max(1, this.rectangles.length - 1);
+                    this.updateRectangleCount(count);
+                });
+                
+                document.getElementById('applyCount').addEventListener('click', () => {
+                    const newCount = parseInt(document.getElementById('countDisplay').textContent);
+                    this.setRectangleCount(newCount);
+                    this.showToast(`Set to ${newCount} rectangle${newCount > 1 ? 's' : ''}`);
+                });
+                
+                // Quick actions
+                document.getElementById('newRect').addEventListener('click', () => {
+                    this.addNewRectangle();
+                    this.showToast('New rectangle added');
+                });
+                
+                document.getElementById('bringForwardBtn').addEventListener('click', () => {
+                    this.bringForward();
+                });
+                
+                document.getElementById('sendBackwardBtn').addEventListener('click', () => {
+                    this.sendBackward();
+                });
+                
+                document.getElementById('saveImageBtn').addEventListener('click', () => {
+                    this.saveCanvasAsImage();
+                });
+                
+                // Size controls - Sliders and Inputs
+                const widthSlider = document.getElementById('widthSlider');
+                const heightSlider = document.getElementById('heightSlider');
+                const widthInput = document.getElementById('widthInput');
+                const heightInput = document.getElementById('heightInput');
+                const flipButton = document.getElementById('flipDimensions');
+
+                // Width slider + input sync
+                widthSlider.addEventListener('input', (e) => {
+                    const val = parseInt(e.target.value);
+                    widthInput.value = val;
+                    if (this.selectedIndex !== -1) {
+                        this.rectangles[this.selectedIndex].width = val;
+                        this.draw();
+                    }
+                });
+
+                widthInput.addEventListener('change', (e) => {
+                    let val = parseInt(e.target.value);
+                    // Clamp value between min and max
+                    val = Math.max(10, Math.min(700, val || 10));
+                    widthInput.value = val;
+                    widthSlider.value = val;
+                    if (this.selectedIndex !== -1) {
+                        this.rectangles[this.selectedIndex].width = val;
+                        this.draw();
+                    }
+                });
+
+                // Height slider + input sync
+                heightSlider.addEventListener('input', (e) => {
+                    const val = parseInt(e.target.value);
+                    heightInput.value = val;
+                    if (this.selectedIndex !== -1) {
+                        this.rectangles[this.selectedIndex].height = val;
+                        this.draw();
+                    }
+                });
+
+                heightInput.addEventListener('change', (e) => {
+                    let val = parseInt(e.target.value);
+                    // Clamp value between min and max
+                    val = Math.max(10, Math.min(700, val || 10));
+                    heightInput.value = val;
+                    heightSlider.value = val;
+                    if (this.selectedIndex !== -1) {
+                        this.rectangles[this.selectedIndex].height = val;
+                        this.draw();
+                    }
+                });
+
+                // Flip button
+                flipButton.addEventListener('click', () => {
+                    if (this.selectedIndex !== -1) {
+                        const rect = this.rectangles[this.selectedIndex];
+                        const temp = rect.width;
+                        rect.width = rect.height;
+                        rect.height = temp;
+                        
+                        // Update inputs and sliders
+                        widthInput.value = rect.width;
+                        heightInput.value = rect.height;
+                        widthSlider.value = rect.width;
+                        heightSlider.value = rect.height;
+                        
+                        this.draw();
+                        this.showToast('Dimensions flipped');
+                    }
+                });
+                
+                // Colour selection
+                document.querySelectorAll('.colour-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        document.querySelectorAll('.colour-option').forEach(opt => opt.classList.remove('selected'));
+                        option.classList.add('selected');
+                        this.selectedColour = option.dataset.colour;
+                        
+                        if (this.selectedIndex !== -1) {
+                            this.rectangles[this.selectedIndex].colour = this.selectedColour;
+                            this.draw();
+                            this.updateSelectionBar();
+                        }
+                    });
+                });
+                
+                // Selection bar actions
+                document.getElementById('editRect').addEventListener('click', () => {
+                    this.showMenu();
+                });
+                
+                document.getElementById('deselectRect').addEventListener('click', () => {
+                    this.selectedIndex = -1;
+                    this.updateSelectionBar();
+                    this.updateControlStates();
+                    this.draw();
+                });
+                
+                // Delete button
+                document.getElementById('deleteRect').addEventListener('click', () => {
+                    this.deleteSelectedRectangle();
+                });
+
+                // Save image button
+                document.getElementById('saveImage').addEventListener('click', () => {
+                    this.saveCanvasAsImage();
+                });
+            }
+
+            // Generate a seed code from current rectangles
+            generateSeed() {
+                if (this.rectangles.length === 0) {
+                    this.showToast('No rectangles to share');
+                    return;
+                }
+
+                // Format: count|x1,y1,w1,h1,c1|x2,y2,w2,h2,c2|...
+                let seedParts = [this.rectangles.length.toString()];
+                
+                this.rectangles.forEach(rect => {
+                    // Round coordinates and dimensions to integers for cleaner code
+                    const x = Math.round(rect.x);
+                    const y = Math.round(rect.y);
+                    const w = Math.round(rect.width);
+                    const h = Math.round(rect.height);
+                    const c = this.colourToIndex[rect.colour] || 0;
+                    
+                    seedParts.push(`${x},${y},${w},${h},${c}`);
+                });
+                
+                // Join with pipe separator and encode for URL safety
+                const seed = seedParts.join('|');
+                const encodedSeed = btoa(seed); // Base64 encode for cleaner sharing
+                
+                document.getElementById('seedDisplay').textContent = encodedSeed;
+                this.showToast('Seed code generated!');
+            }
+
+            // Copy seed to clipboard
+            async copySeed() {
+                const seedDisplay = document.getElementById('seedDisplay');
+                const seed = seedDisplay.textContent;
+                
+                if (seed === 'Click generate to create share code') {
+                    this.showToast('Generate a seed first');
+                    return;
+                }
+                
+                try {
+                    await navigator.clipboard.writeText(seed);
+                    this.showToast('Copied to clipboard!');
+                } catch (err) {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = seed;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    this.showToast('Copied to clipboard!');
+                }
+            }
+
+            // Load from seed code
+            loadSeed() {
+                const seedInput = document.getElementById('seedInput').value.trim();
+                
+                if (!seedInput) {
+                    this.showToast('Enter a seed code');
+                    return;
+                }
+                
+                try {
+                    // Decode base64
+                    const decoded = atob(seedInput);
+                    const parts = decoded.split('|');
+                    
+                    const count = parseInt(parts[0]);
+                    if (isNaN(count) || count < 1 || count > 10) {
+                        throw new Error('Invalid rectangle count');
+                    }
+                    
+                    const newRectangles = [];
+                    
+                    for (let i = 1; i <= count; i++) {
+                        const rectData = parts[i].split(',').map(num => parseInt(num));
+                        if (rectData.length !== 5) {
+                            throw new Error('Invalid rectangle data');
+                        }
+                        
+                        const [x, y, w, h, cIndex] = rectData;
+                        
+                        // Validate values
+                        if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || isNaN(cIndex)) {
+                            throw new Error('Invalid number values');
+                        }
+                        
+                        // Clamp values to valid ranges
+                        const validX = Math.max(0, Math.min(this.canvas.width - 10, x));
+                        const validY = Math.max(0, Math.min(this.canvas.height - 10, y));
+                        const validW = Math.max(10, Math.min(700, w));
+                        const validH = Math.max(10, Math.min(700, h));
+                        const validC = Math.max(0, Math.min(5, cIndex));
+                        
+                        newRectangles.push({
+                            x: validX,
+                            y: validY,
+                            width: validW,
+                            height: validH,
+                            colour: this.colours[validC]
+                        });
+                    }
+                    
+                    // Replace current rectangles with loaded ones
+                    this.rectangles = newRectangles;
+                    this.selectedIndex = -1;
+                    
+                    // Update UI
+                    this.updateCountDisplay();
+                    this.updateSelectionBar();
+                    this.updateControlStates();
+                    this.draw();
+                    
+                    this.showToast(`Loaded ${count} rectangle${count > 1 ? 's' : ''}!`);
+                    
+                    // Clear input and maybe close menu
+                    document.getElementById('seedInput').value = '';
+                    
+                } catch (error) {
+                    console.error('Load error:', error);
+                    this.showToast('Invalid seed code');
+                }
+            }
+
+            handleTouchStart(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                this.touchIdentifier = touch.identifier;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const x = (touch.clientX - rect.left) * (this.canvas.width / rect.width);
+                const y = (touch.clientY - rect.top) * (this.canvas.height / rect.height);
+                
+                // Check for rectangle selection
+                const hitIndex = this.findRectangleAt(x, y);
+                
+                if (hitIndex !== -1) {
+                    // Start long press timer for context menu
+                    this.longPressTimer = setTimeout(() => {
+                        this.showContextMenu(hitIndex, touch.clientX, touch.clientY);
+                    }, this.longPressThreshold);
+                    
+                    this.dragging = true;
+                    this.selectedIndex = hitIndex;
+                    this.dragStart = { x, y };
+                    this.dragRectStart = {
+                        x: this.rectangles[hitIndex].x,
+                        y: this.rectangles[hitIndex].y
+                    };
+                    
+                    this.updateSelectionBar();
+                    this.updateControlStates();
+                    this.updateColourPicker();
+                    this.draw();
+                } else {
+                    // Deselect if tapping empty space
+                    this.selectedIndex = -1;
+                    this.updateSelectionBar();
+                    this.updateControlStates();
+                    this.draw();
+                }
+            }
+
+            handleTouchMove(e) {
+                e.preventDefault();
+                
+                if (this.longPressTimer) {
+                    clearTimeout(this.longPressTimer);
+                    this.longPressTimer = null;
+                }
+                
+                const touch = this.findTouch(e);
+                if (!touch) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const x = (touch.clientX - rect.left) * (this.canvas.width / rect.width);
+                const y = (touch.clientY - rect.top) * (this.canvas.height / rect.height);
+                
+                // Only handle dragging - no resizing on canvas
+                if (this.dragging && this.selectedIndex !== -1) {
+                    // Handle drag
+                    const selected = this.rectangles[this.selectedIndex];
+                    const dx = x - this.dragStart.x;
+                    const dy = y - this.dragStart.y;
+                    
+                    selected.x = Math.max(0, Math.min(this.canvas.width - selected.width, 
+                                                      this.dragRectStart.x + dx));
+                    selected.y = Math.max(0, Math.min(this.canvas.height - selected.height, 
+                                                      this.dragRectStart.y + dy));
+                    
+                    this.draw();
+                }
+            }
+
+            handleTouchEnd(e) {
+                e.preventDefault();
+                
+                if (this.longPressTimer) {
+                    clearTimeout(this.longPressTimer);
+                    this.longPressTimer = null;
+                }
+                
+                this.dragging = false;
+                this.touchIdentifier = null;
+            }
+
+            handleTouchCancel(e) {
+                this.handleTouchEnd(e);
+            }
+
+            findTouch(e) {
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === this.touchIdentifier) {
+                        return e.touches[i];
+                    }
+                }
+                return null;
+            }
+
+            findRectangleAt(x, y) {
+                for (let i = this.rectangles.length - 1; i >= 0; i--) {
+                    const rect = this.rectangles[i];
+                    if (x >= rect.x && x <= rect.x + rect.width &&
+                        y >= rect.y && y <= rect.y + rect.height) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
+            showContextMenu(index, clientX, clientY) {
+                if (index !== -1) {
+                    this.selectedIndex = index;
+                    this.updateSelectionBar();
+                    this.updateControlStates();
+                    this.updateColourPicker();
+                    this.showMenu();
+                    
+                    // Show long press indicator
+                    const indicator = document.getElementById('longPressIndicator');
+                    indicator.style.left = (clientX - 30) + 'px';
+                    indicator.style.top = (clientY - 30) + 'px';
+                    indicator.style.display = 'block';
+                    setTimeout(() => {
+                        indicator.style.display = 'none';
+                    }, 300);
+                }
+            }
+
+            createDefaultRectangles() {
+                this.rectangles = [];
+                const count = 3;
+                
+                for (let i = 0; i < count; i++) {
+                    this.addRectangleAtIndex(i);
+                }
+                
+                this.selectedIndex = -1;
+                this.updateCountDisplay();
+                this.draw();
+            }
+
+            addRectangleAtIndex(index) {
+                const x = 50 + (index * 40) % (this.canvas.width - 150);
+                const y = 50 + (index * 40) % (this.canvas.height - 150);
+                
+                this.rectangles.push({
+                    x: Math.min(x, this.canvas.width - 130),
+                    y: Math.min(y, this.canvas.height - 130),
+                    width: 80 + (index * 10),
+                    height: 80 + (index * 10),
+                    colour: this.colours[index % this.colours.length]
+                });
+            }
+
+            addNewRectangle() {
+                if (this.rectangles.length >= 10) {
+                    this.showToast('Maximum 10 rectangles reached');
+                    return;
+                }
+                
+                const index = this.rectangles.length;
+                const x = 20 + (index * 30) % (this.canvas.width - 150);
+                const y = 20 + (index * 30) % (this.canvas.height - 150);
+                
+                this.rectangles.push({
+                    x: Math.min(x, this.canvas.width - 130),
+                    y: Math.min(y, this.canvas.height - 130),
+                    width: 100,
+                    height: 100,
+                    colour: this.selectedColour
+                });
+                
+                this.selectedIndex = this.rectangles.length - 1;
+                this.updateCountDisplay();
+                this.updateSelectionBar();
+                this.updateControlStates();
+                this.updateColourPicker();
+                this.draw();
+            }
+
+            updateRectangleCount(newCount) {
+                document.getElementById('countDisplay').textContent = newCount;
+            }
+
+            setRectangleCount(newCount) {
+                const currentCount = this.rectangles.length;
+                
+                if (newCount > currentCount) {
+                    // Add rectangles
+                    for (let i = currentCount; i < newCount; i++) {
+                        this.addRectangleAtIndex(i);
+                    }
+                } else if (newCount < currentCount) {
+                    // Remove rectangles from the end
+                    this.rectangles = this.rectangles.slice(0, newCount);
+                    if (this.selectedIndex >= newCount) {
+                        this.selectedIndex = -1;
+                    }
+                }
+                
+                this.updateSelectionBar();
+                this.updateControlStates();
+                this.draw();
+            }
+
+            bringForward() {
+                if (this.selectedIndex !== -1 && this.selectedIndex < this.rectangles.length - 1) {
+                    // Swap with next rectangle
+                    const temp = this.rectangles[this.selectedIndex];
+                    this.rectangles[this.selectedIndex] = this.rectangles[this.selectedIndex + 1];
+                    this.rectangles[this.selectedIndex + 1] = temp;
+                    this.selectedIndex++;
+                    this.draw();
+                    this.updateSelectionBar();
+                }
+            }
+
+            sendBackward() {
+                if (this.selectedIndex > 0) {
+                    // Swap with previous rectangle
+                    const temp = this.rectangles[this.selectedIndex];
+                    this.rectangles[this.selectedIndex] = this.rectangles[this.selectedIndex - 1];
+                    this.rectangles[this.selectedIndex - 1] = temp;
+                    this.selectedIndex--;
+                    this.draw();
+                    this.updateSelectionBar();
+                }
+            }
+
+            deleteSelectedRectangle() {
+                if (this.selectedIndex !== -1 && this.rectangles.length > 1) {
+                    this.rectangles.splice(this.selectedIndex, 1);
+                    this.selectedIndex = Math.min(this.selectedIndex, this.rectangles.length - 1);
+                    if (this.selectedIndex === -1 && this.rectangles.length > 0) {
+                        this.selectedIndex = 0;
+                    }
+                    this.updateCountDisplay();
+                    this.updateSelectionBar();
+                    this.updateControlStates();
+                    this.draw();
+                    this.showToast('Rectangle deleted');
+                } else if (this.rectangles.length === 1) {
+                    this.showToast('Cannot delete last rectangle');
+                }
+            }
+
+            saveCanvasAsImage() {
+                // Create a temporary link element
+                const link = document.createElement('a');
+                
+                // Convert canvas to JPEG data URL with white background
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = this.canvas.width;
+                tempCanvas.height = this.canvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Fill with white background (since canvas is already white, but just to be sure)
+                tempCtx.fillStyle = '#ffffff';
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                
+                // Draw the rectangles
+                this.rectangles.forEach((rect, index) => {
+                    tempCtx.strokeStyle = rect.colour;
+                    tempCtx.lineWidth = index === this.selectedIndex ? 4 : 2.5;
+                    
+                    if (index === this.selectedIndex) {
+                        tempCtx.setLineDash([8, 5]);
+                    } else {
+                        tempCtx.setLineDash([]);
+                    }
+                    
+                    tempCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                });
+                
+                // Reset line dash
+                tempCtx.setLineDash([]);
+                
+                // Create download link
+                link.download = `rectangle-studio-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.jpg`;
+                link.href = tempCanvas.toDataURL('image/jpeg', 0.95);
+                link.click();
+                
+                this.showToast('Canvas saved as JPEG');
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.rectangles.forEach((rect, index) => {
+                    this.ctx.strokeStyle = rect.colour;
+                    this.ctx.lineWidth = index === this.selectedIndex ? 4 : 2.5;
+                    
+                    if (index === this.selectedIndex) {
+                        this.ctx.setLineDash([8, 5]);
+                    } else {
+                        this.ctx.setLineDash([]);
+                    }
+                    
+                    this.ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                });
+                
+                this.ctx.setLineDash([]);
+            }
+
+            updateSelectionBar() {
+                const bar = document.getElementById('selectionBar');
+                const info = document.getElementById('selectionInfo');
+                
+                if (this.selectedIndex !== -1 && this.rectangles[this.selectedIndex]) {
+                    const rect = this.rectangles[this.selectedIndex];
+                    info.textContent = `Rect ${this.selectedIndex + 1} (${rect.colour})`;
+                    bar.classList.add('visible');
+                } else {
+                    bar.classList.remove('visible');
+                }
+            }
+
+            updateControlStates() {
+                const hasSelection = this.selectedIndex !== -1;
+                document.getElementById('bringForwardBtn').disabled = !hasSelection || this.selectedIndex === this.rectangles.length - 1;
+                document.getElementById('sendBackwardBtn').disabled = !hasSelection || this.selectedIndex === 0;
+                document.getElementById('deleteRect').disabled = !hasSelection;
+                document.getElementById('flipDimensions').disabled = !hasSelection;
+                
+                if (hasSelection) {
+                    const rect = this.rectangles[this.selectedIndex];
+                    document.getElementById('widthSlider').value = rect.width;
+                    document.getElementById('heightSlider').value = rect.height;
+                    document.getElementById('widthInput').value = rect.width;
+                    document.getElementById('heightInput').value = rect.height;
+                }
+            }
+
+            updateColourPicker() {
+                if (this.selectedIndex !== -1) {
+                    const rect = this.rectangles[this.selectedIndex];
+                    document.querySelectorAll('.colour-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                        if (opt.dataset.colour === rect.colour) {
+                            opt.classList.add('selected');
+                        }
+                    });
+                }
+            }
+
+            updateCountDisplay() {
+                document.getElementById('countDisplay').textContent = this.rectangles.length;
+            }
+
+            toggleMenu() {
+                const menu = document.getElementById('menuPanel');
+                menu.classList.toggle('visible');
+            }
+
+            showMenu() {
+                document.getElementById('menuPanel').classList.add('visible');
+            }
+
+            hideMenu() {
+                document.getElementById('menuPanel').classList.remove('visible');
+            }
+
+            showToast(message) {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.classList.add('visible');
+                setTimeout(() => {
+                    toast.classList.remove('visible');
+                }, 2000);
+            }
+        }
+
+        // Initialize app
+        window.addEventListener('load', () => {
+            new MobileRectangleApp();
+        });
+    </script>
+</body>
+</html>
